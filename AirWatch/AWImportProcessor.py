@@ -86,6 +86,7 @@ class AWImportProcessor(Processor):
         return r.json()
 
     def awimport(self, filetype, filepath):
+        self.output("Beginning the AirWatch import process for the %s." % filetype)
         BASEURL = self.env.get("airwatch_url")
         GROUPID = self.env.get("airwatch_groupid")
         APITOKEN = self.env.get("api_token")
@@ -101,9 +102,9 @@ class AWImportProcessor(Processor):
 
         # get OG ID from GROUPID
         r = requests.get(BASEURL + '/api/system/groups/search?groupid=' + GROUPID, headers=headers)
-        for result in r.text['LocationGroups'][0]:
-            if result['GroupId'] == GROUPID:
-                ogid = result['Id']['Value']
+        result = r.json()
+        if GROUPID in result['LocationGroups'][0]['GroupId']:
+            ogid = result['LocationGroups'][0]['Id']['Value']
         self.output('OG ID: {}'.format(ogid))
 
         if filetype == 'pkg':
@@ -113,7 +114,7 @@ class AWImportProcessor(Processor):
                       os.path.basename(filepath) + '&organizationgroup=' + \
                       str(ogid) + '&moduleType=Application' # Application only for pkg/dmg upload
 
-            res = streamFile(filepath, posturl, headers)
+            res = self.streamFile(filepath, posturl, headers)
             pkg_id = res['Value']
             self.output('Pkg ID: {}'.format(pkg_id))
             return pkg_id
@@ -124,7 +125,7 @@ class AWImportProcessor(Processor):
                       os.path.basename(filepath) + '&organizationgroup=' + \
                       str(ogid) + '&moduleType=General' # General for pkginfo and icon
 
-            res = streamFile(filepath, posturl, headers)
+            res = self.streamFile(filepath, posturl, headers)
             pkginfo_id = res['Value']
             self.output('PkgInfo ID: {}'.format(pkginfo_id))
             return pkginfo_id
@@ -135,7 +136,7 @@ class AWImportProcessor(Processor):
                       os.path.basename(ICON_FILEPATH) + '&organizationgroup=' + \
                       str(ogid) + '&moduleType=General' # General for pkginfo and icon
 
-            res = streamFile(ICON_FILEPATH, posturl, headers)
+            res = self.streamFile(ICON_FILEPATH, posturl, headers)
             icon_id = res['Value']
             self.output('Icon ID: {}'.format(icon_id))
             return icon_id
@@ -155,20 +156,31 @@ class AWImportProcessor(Processor):
             run_results = []
 
         something_imported = False
+        
+        try:
+            pkginfo_path = self.env["munki_importer_summary_result"]["data"]["pkginfo_path"]
+        except:
+            pkginfo_path = None
+
         # run_results is an array of autopackager.results,
         # which is itself an array.
         # look through all the results for evidence that
         # something was imported
         # this could probably be done as an array comprehension
         # but might be harder to grasp...
-        for result in run_results:
-            for item in result:
-                if item.get("Processor") == "MunkiImporter":
-                    if item["Output"].get("pkginfo_repo_path"):
-                        something_imported = True
-                        break
+#        for result in run_results:
+#            self.output(result)
+#            for item in result:
+#                if "MunkiImporter" in item.get("Processor"):
+#                    self.output("We found MunkiImporter")
+#                    if item["Output"]["pkginfo_repo_path"]:
+#                        something_imported = True
+#                        break
+        if pkginfo_path:
+            something_imported = True
 
         if not something_imported and not self.env.get("force_import"):
+            self.output(run_results)
             self.output("No updates so nothing to import to AirWatch")
             self.env["airwatch_resultcode"] = 0
             self.env["airwatch_stderr"] = ""
@@ -176,16 +188,11 @@ class AWImportProcessor(Processor):
             #TODO: Upload all pkgs/pkginfos/icons to AW from munki repo
             #Look for munki code where it tries to find the icon in the repo
             pass
-        else:
-            for result in run_results:
-                for item in result:
-                    if item.get("Processor") == "MunkiImporter":
-                        if item["Output"].get("pkginfo_repo_path"):
-                            pi = item["Output"].get("pkginfo_repo_path")
-                            self.output(awimport('pkginfo', pi))
-                        if item["Output"].get("pkg_repo_path"):
-                            pkg = item["Output"].get("pkginfo_repo_path")
-                            self.output(awimport('pkg', pkg))
+        else:  
+            pi = self.env["pkginfo_repo_path"]
+            self.output(self.awimport('pkginfo', pi))
+            pkg = self.env["pkg_repo_path"]
+            self.output(self.awimport('pkg', pkg))
 
 
 
