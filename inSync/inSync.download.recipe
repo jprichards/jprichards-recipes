@@ -17,9 +17,7 @@
         <key>SEARCH_PATTERN_1</key>
         <string>href="(?P&lt;posturl&gt;.*insync\/client\/cloud\/.*\/)"</string>
         <key>SEARCH_PATTERN_2</key>
-        <string>href="(?P&lt;dlurl&gt;.*/downloads/inSync\/MAC\/(?P&lt;shortversion&gt;.*)\/(?P&lt;filename&gt;inSync\-(?P&lt;longversion&gt;.*))\.dmg)"</string>
-        <key>USER_AGENT</key>
-        <string>Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_3) AppleWebKit/536.28.10 (KHTML, like Gecko) Version/6.0.3 Safari/536.28.10</string>
+        <string>href="(?P&lt;dlurl&gt;.*/downloads/inSync\/MAC\/(?P&lt;shortversion&gt;.*)\/inSync\-(?P&lt;longversion&gt;.*)\.dmg)"</string>
     </dict>
     <key>Process</key>
     <array>
@@ -52,18 +50,26 @@
             <dict>
                 <key>url</key>
                 <string>%dlurl%</string>
-                <key>request_headers</key>
-                <dict>
-                    <key>user-agent</key>
-                    <string>%USER_AGENT%</string>
-                </dict>
-                <key>filename</key>
-                <string>%filename%.dmg</string>
             </dict>
         </dict>
         <dict>
             <key>Processor</key>
             <string>EndOfCheckPhase</string>
+        </dict>
+        <dict>
+            <key>Processor</key>
+            <string>CodeSignatureVerifier</string>
+            <key>Arguments</key>
+            <dict>
+                <key>input_path</key>
+                <string>%pathname%/Install inSync.mpkg</string>
+                <key>expected_authority_names</key>
+                <array>
+                    <string>Developer ID Installer: Druva Technologies PTE LTD (JN6HK3RMAP)</string>
+                    <string>Developer ID Certification Authority</string>
+                    <string>Apple Root CA</string>
+                </array>
+            </dict>
         </dict>
     </array>
 </dict>
